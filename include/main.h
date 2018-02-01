@@ -24,10 +24,6 @@
 #define data3_R1 GPIO_Pin_1      //R5 port A
 #define data3_R2 GPIO_Pin_2      //R6 port A
 
-//Kintamieji
-unsigned char button, menu;
-uint16_t btn;
-
 //MENIU NUSTATYMAI
 #define BOOT       0
 #define LAIKRODIS  1
@@ -36,6 +32,42 @@ uint16_t btn;
 #define ZAIDIMAI   4
 #define NUSTATYMAI 5
 #define APIE 	   6
+
+//MYKTUKAI
+#define NO_KEY       0
+#define ATGAL        1
+#define DESINE       2
+#define ZEMYN        3
+#define OK       	 4
+#define KAIRE        5
+#define AUKSTYN      6
+#define MENIU        7
+
+//Kintamieji
+int row=0, gett;
+//DS3231
+uint8_t D, d, M, y, h, m, s;
+//DS3231 laikui nustatyti
+uint8_t sD, sd, sM, sy, sh, sm, ss;
+//ADC
+uint16_t key;
+//myktukai
+unsigned char button, menu;
+uint16_t btn;
+//HTU21D
+float  tempu, humu;
+
+//meniu kintamieji
+unsigned char meniu=0, set_meniu=0, set_laikas=0;
+unsigned char pra=20, pab=0, pozicija=0, vieta = 0;;
+//uzdelsimo kintamieji
+unsigned long readMillis, previousMillis;
+
+char * const time_meniu[2][4] = {
+		{"Laikas", "Data", "Sav. diena", "Laiko zona"},
+		{"Stilius", "Efektai", "Kiti", "Atgal"}
+};
+char * const dienos[7] = {"Pirmadienis", "Antradienis", "Treciadienis", "Ketvirtadienis", "Penktadienis", "Sestadienis", "Sekmadienis"};
 
 //FLOAT konvertavimas
 // reverses a string 'str' of length 'len'
@@ -53,8 +85,7 @@ int intToStr(int x, char str[], int d){
     int i = 0;
     while (x){
         str[i++] = (x%10) + '0';
-        x = x/10;
-    }
+        x = x/10;}
     while (i < d)
         str[i++] = '0';
 
@@ -81,7 +112,6 @@ void matrix_gpio_init(){
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);
 
-	/* Ä®jungiam taktavimÄ… PORT A ir B */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB, ENABLE);
 
 	/* Port A nustatomi pin'ai */
@@ -100,11 +130,9 @@ void matrix_gpio_init(){
 }
 
 void matrix_timer_init(){
-	/* Ä®jungiam laikmaÄ�io taktavimÄ… */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
 	TIM_TimeBaseInitTypeDef timerInitStructure;
-	/* Nustatom laikmatÄ¯ atnaujinti LED Matrix */
 	timerInitStructure.TIM_Prescaler = 0;
 	timerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
 	timerInitStructure.TIM_Period = 65454;
@@ -113,10 +141,8 @@ void matrix_timer_init(){
 	TIM_TimeBaseInit(TIM3, &timerInitStructure);
 	TIM_Cmd(TIM3, ENABLE);
 
-	/* Atjungiam TIM_IT_Update ivykio generavima */
 	TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE);
 
-	/* Konfiguruojam laikmasio petraukimo vektoriu */
 	NVIC_InitTypeDef nvicStructure;
 	nvicStructure.NVIC_IRQChannel = TIM3_IRQn;
 	nvicStructure.NVIC_IRQChannelPreemptionPriority = 0;
@@ -158,13 +184,13 @@ uint16_t readADC1(uint8_t channel){
   // Get the conversion value
   uint16_t abutton = ADC_GetConversionValue(ADC1);
   //tikrinama koks myktukas buvo nuspaustas
-  if(abutton<30){button=1; btn=1; /*Atgal*/ }else
-  if (abutton<450 && abutton>300){button=2; btn=2; /*Desine*/ }else
-  if (abutton<1050 && abutton>900){button=3; btn=3; /*Zemyn*/ }else
-  if (abutton<1600 && abutton>1400){button=4; btn=4; /*OK*/ }else
-  if (abutton<2300 && abutton>2100){button=5; btn=5; /*Kaire*/ }else
-  if (abutton<2900 && abutton>2700){button=6; btn=6; /*Aukstyn*/ }else
-  if (abutton<3400 && abutton>3200){button=7; btn=7; /*Meniu*/ }else{button=0;}
+  if(abutton<30){button = ATGAL; btn = ATGAL; /*Atgal*/ }else
+  if (abutton<450 && abutton>300){button = DESINE; btn = DESINE; /*Desine*/ }else
+  if (abutton<1050 && abutton>900){button = ZEMYN; btn = ZEMYN; /*Zemyn*/ }else
+  if (abutton<1600 && abutton>1400){button = OK; btn = OK; /*OK*/ }else
+  if (abutton<2300 && abutton>2100){button = KAIRE; btn = KAIRE; /*Kaire*/ }else
+  if (abutton<2900 && abutton>2700){button = AUKSTYN; btn = AUKSTYN; /*Aukstyn*/ }else
+  if (abutton<3400 && abutton>3200){button = MENIU; btn = MENIU; /*Meniu*/ }else{button = NO_KEY;}
   return btn;
   return button;
 }
